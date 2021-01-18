@@ -9,6 +9,8 @@ import java.util.Arrays;
 
 import static game.Graph.actualMinMaxDepth;
 
+//import static game.Graph.actualMinMaxDepth;
+
 
 public class MinMax {
     public ArrayList<Node> tree = new ArrayList<Node>();
@@ -32,10 +34,9 @@ public class MinMax {
     // mutlipliers
     public static double a=1;
     public static double b=0;
-    public static double c=-2.5;
+    public static double c=-0.25;
     public static double d=0.5;
     public static double e=1;
-
 
     boolean print=false;
     public static int counter=0;
@@ -44,22 +45,22 @@ public class MinMax {
         counter++;
         int t=counter;
         if(print) {
-            System.out.println("Depth: "+(Graph.actualMinMaxDepth-depth)+" | "+t + "| " + node.toString());
+            System.out.println("Depth: "+(actualMinMaxDepth-depth)+" | "+t + "| " + node.toString());
         }
         if(depth==0|| node.terminal){
             return node;
         }
         Node toReturn;
-        ArrayList<ELine> availList = new ArrayList<>();
+        ArrayList<ELine> availList;
         availList = sortElines(node);
         if(bot){
             a = -1000000;
-            String maxS = "Depth: "+(Graph.actualMinMaxDepth-depth)+" MAX "+t+": ";
+            String maxS = "Depth: "+(actualMinMaxDepth-depth)+" MAX "+t+": ";
             Node temp=null;
             for (ELine v : availList) {
                 Node tem = node.performMove(v);
                 tem.setParent(node);
-                tem.setDepth((Graph.actualMinMaxDepth-depth)+1);
+                tem.setDepth((actualMinMaxDepth-depth)+1);
                 Node toCompare = alphaBeta(tem, depth - 1, a, b, tem.botTurn);
                 double eval = toCompare.evaluation();
                 maxS += v.toString() + ": " +eval + ", ";
@@ -75,7 +76,7 @@ public class MinMax {
                     break;
                 }
             }
-            if((Graph.actualMinMaxDepth-depth)==0){
+            if((actualMinMaxDepth-depth)==0){
                 while(temp.depth!=1){
                     temp=temp.parent;
                 }
@@ -87,7 +88,7 @@ public class MinMax {
             }
         }else{
             b = 1000000;
-            String minS = "Depth: "+(Graph.actualMinMaxDepth-depth)+" Min "+t+": ";
+            String minS = "Depth: "+(actualMinMaxDepth-depth)+" Min "+t+": ";
             Node temp=null;
             for (ELine v : availList) {
                 Node tem = node.performMove(v);
@@ -129,7 +130,7 @@ public class MinMax {
         return toReturn;
     }
 
-
+    // sorts the ELine list, lines that complete a box goes first, lines that set up a box go last
     public ArrayList<ELine> sortElines(Node state){
         ArrayList<Integer> completesABox = getCompleteBoxes(state);
         ArrayList<ELine> av = Node.avCopy(state.availLines);
@@ -238,7 +239,7 @@ public class MinMax {
         return -1;
     }
 
-
+    // non alpha beta miniMax
     public Node minMaxFunction(Node node, int depth, boolean bot){
         counter++;
         int t=counter;

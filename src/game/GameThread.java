@@ -5,16 +5,18 @@ import minMax.MinMax;
 
 import java.awt.*;
 import java.io.IOException;
+import java.math.BigInteger;
 import java.util.ArrayList;
 
 import static game.Graph.*;
 
 public class GameThread extends Thread{
-    int minMaxCounter=1;
+    int minMaxCounter=0;
+
+    //game thread
     public void run(){
         try{
             while(!checkFinished()) {
-                Node te = new Node(Node.matrixCopy(Graph.getMatrix()),0,0,null,false,false,false,null);
                // System.out.println("Number of chains: "+te.numberOfLongChains());
                 if(allWaysReplay){
                     sleep(30);
@@ -22,7 +24,14 @@ public class GameThread extends Thread{
                 if(Graph.getSleep()>0) {
                     sleep(500*Graph.getSleep());
                 }
+                // removes all activated ELines
                 availableLines=availCheck(Graph.getAvailableLines());
+                if(isBaseBotPlusOn&& baseBotP1==Graph.getPlayer1Turn()){
+                    long start =System.nanoTime();
+                    Graph.baseB.getEdge();
+                    long stop = System.nanoTime();
+                 //   System.out.println("B: "+((stop-start)/1000000));
+                }
                 if(Graph.completelyRandom&&player1Turn==randP1){
                     random();
                     // System.out.println("R: "+((stop-start)/1000000));
@@ -37,45 +46,95 @@ public class GameThread extends Thread{
                     
                     
                     Graph.getRandomBot().placeRandomEdge();
-//                    Graph.getMCTS().placeEdge();
                 }
+                if (Graph.isMCTS()&& Graph.player1Turn == Graph.isMCTSP1()) {
+                    long start =System.nanoTime();
+
+                    if(Graph.getSleep()>0) {
+                        sleep(250*Graph.getSleep());
+                    }
+                    if(allWaysReplay){
+                        sleep(15);
+                    }
+                    Graph.getMCTS().placeEdge();
+                    long stop = System.nanoTime();
+                    System.out.println("MCTS: "+((stop-start)/1000000));
+                }
+
                 if(bothMinMax){
                     long start =System.nanoTime();
+                    minMaxCounter++;
                     Node state;
-                    if(player1Turn){
-                        state = new Node(Node.matrixCopy(Graph.getMatrix()), Graph.getPlayer1Score(), Graph.getPlayer2Score(), Node.avCopy(Graph.getAvailableLines()), true, false, false, null);
+                    if(Graph.isMiniMaxP1()) {
+                        state = new Node(Node.matrixCopy(Graph.getMatrix()), Graph.getPlayer1Score(), Graph.getPlayer2Score(), Node.avCopy(Graph.getAvailableLines()), true, false, false, null,doubleCross);
                     }else{
-                        state = new Node(Node.matrixCopy(Graph.getMatrix()), Graph.getPlayer2Score(), Graph.getPlayer1Score(), Node.avCopy(Graph.getAvailableLines()), true, false, false, null);
+                        state = new Node(Node.matrixCopy(Graph.getMatrix()), Graph.getPlayer2Score(), Graph.getPlayer1Score(), Node.avCopy(Graph.getAvailableLines()), true, false, false, null,doubleCross);
                     }
+                    // placeEdge(t.minMaxFunction(state,3,true).move);
+                    int minMaxDepth;
+                    if(availableLines.size()<20){
+                        minMaxDepth=Math.max(availableLines.size(),10);
+                    }else{
+                        minMaxDepth=10;
+                    }
+                    boolean contin=true;
+                    long minMaxExpansion;
+                    if(minMaxCounter<3){
+                        minMaxExpansion=(minMaxNodesExpansion/(12/(minMaxCounter*2)));
+                    }else {
+                        minMaxExpansion = minMaxNodesExpansion;
+                    }
+                    while(contin){
+                        minMaxDepth--;
+                        BigInteger num = factorial(BigInteger.valueOf(availableLines.size())).divide(factorial(BigInteger.valueOf(availableLines.size()-minMaxDepth)));
+                        // System.out.println("MinMaxNodes: "+minMaxDepth+" NUM: "+num+" < "+ minMaxNodesExpansion);
+                        if(num.compareTo(BigInteger.valueOf(minMaxExpansion))==-1){
+                            contin=false;
+                        }
+                    }
+                    actualMinMaxDepth=minMaxDepth;
+                    System.out.println("minMaxDepth: "+minMaxDepth);
                     placeEdge(t.alphaBeta(state, minMaxDepth, -1000000, 1000000, true).move);
                     long stop = System.nanoTime();
                     System.out.println("MM: "+((stop-start)/1000000));
                 }
                 if(Graph.isMiniMax()&&Graph.isMiniMaxP1()== player1Turn){
-                    if(minMaxCounter==1){
-                        minMaxCounter++;
-                    }else{
-                        minMaxCounter+=5;
-                    }
+                    minMaxCounter++;
                     long start =System.nanoTime();
                     Node state;
                     if(Graph.isMiniMaxP1()) {
-                        state = new Node(Node.matrixCopy(Graph.getMatrix()), Graph.getPlayer1Score(), Graph.getPlayer2Score(), Node.avCopy(Graph.getAvailableLines()), true, false, false, null);
+                        state = new Node(Node.matrixCopy(Graph.getMatrix()), Graph.getPlayer1Score(), Graph.getPlayer2Score(), Node.avCopy(Graph.getAvailableLines()), true, false, false, null,doubleCross);
                     }else{
-                        state = new Node(Node.matrixCopy(Graph.getMatrix()), Graph.getPlayer2Score(), Graph.getPlayer1Score(), Node.avCopy(Graph.getAvailableLines()), true, false, false, null);
+                        state = new Node(Node.matrixCopy(Graph.getMatrix()), Graph.getPlayer2Score(), Graph.getPlayer1Score(), Node.avCopy(Graph.getAvailableLines()), true, false, false, null,doubleCross);
                     }
                    // placeEdge(t.minMaxFunction(state,3,true).move);
-                    if(minMaxCounter<3){
-                        //System.out.println("COUNTER: "+minMaxCounter);
-                        actualMinMaxDepth=minMaxCounter;
-                        placeEdge(t.alphaBeta(state, minMaxCounter, -1000000, 1000000, true).move);
+                    int minMaxDepth;
+                    if(availableLines.size()<20){
+                        minMaxDepth=Math.max(availableLines.size(),10);
                     }else{
-                        actualMinMaxDepth=minMaxDepth;
-                        placeEdge(t.alphaBeta(state, minMaxDepth, -1000000, 1000000, true).move);
+                        minMaxDepth=10;
                     }
+                    boolean contin=true;
+                    long minMaxExpansion;
+                    if(minMaxCounter<3){
+                        minMaxExpansion=(minMaxNodesExpansion/(12/(minMaxCounter*2)));
+                    }else {
+                        minMaxExpansion = minMaxNodesExpansion;
+                    }
+                    while(contin){
+                        minMaxDepth--;
+                        BigInteger num = factorial(BigInteger.valueOf(availableLines.size())).divide(factorial(BigInteger.valueOf(availableLines.size()-minMaxDepth)));
+                       // System.out.println("MinMaxNodes: "+minMaxDepth+" NUM: "+num+" < "+ minMaxNodesExpansion);
+                        if(num.compareTo(BigInteger.valueOf(minMaxExpansion))==-1){
+                            contin=false;
+                        }
+                    }
+                    actualMinMaxDepth=minMaxDepth;
+                    System.out.println("minMaxDepth: "+minMaxDepth);
+                    placeEdge(t.alphaBeta(state, minMaxDepth, -1000000, 1000000, true).move);
                     MinMax.counter =0;
                     long stop = System.nanoTime();
-                    //System.out.println("MM: "+((stop-start)/1000000));
+                    System.out.println("MM: "+((stop-start)/1000000));
                 }
                 
                 if (Graph.getNumOfMoves() < 1) {
@@ -98,11 +157,24 @@ public class GameThread extends Thread{
             e.printStackTrace();
         }
     }
+    public static BigInteger factorial(BigInteger number) {
+        BigInteger result = BigInteger.valueOf(1);
+
+        for (long factor = 2; factor <= number.longValue(); factor++) {
+            result = result.multiply(BigInteger.valueOf(factor));
+        }
+
+        return result;
+    }
     public static void random() {
         ELine line = Graph.getAvailableLines().get((int)(Math.random()*availableLines.size()));
         line.setActivated(true);
         // make it black
-        line.setBackground(Color.BLACK);
+        if(player1Turn) {
+            line.setBackground(Color.RED);
+        }else{
+            line.setBackground(Color.BLUE);
+        }
         line.repaint();
         // set the adjacency matrix to 2, 2==is a line, 1==is a possible line
         Graph.matrix[line.vertices.get(0).getID()][line.vertices.get(1).getID()] = 2;
@@ -110,6 +182,9 @@ public class GameThread extends Thread{
         // gets an arrayList of each box the ELine creates. The box is an arrayList of 4 vertices.
         ArrayList<ArrayList<Vertex>> boxes = checkBox(line);
         if (boxes != null) {
+            if(boxes.size()>1){
+                doubleCross=!doubleCross;
+            }
             for (ArrayList<Vertex> box : boxes) {
                 // looks through the counterBoxes arrayList and sets the matching one visible.
                 checkMatching(box);
@@ -128,40 +203,7 @@ public class GameThread extends Thread{
             // switches turn. If randomBot is active switches to their turn.
         }
     }
-    public static void placeEdgeN(int index){
-        ELine line = Graph.getEdgeList().get(index).getEline();
-        if(!line.isActivated()) {
-            line.setActivated(true);
-            // make it black
-            line.setBackground(Color.BLACK);
-            line.repaint();
-            // set the adjacency matrix to 2, 2==is a line, 1==is a possible line
-            Graph.matrix[line.vertices.get(0).getID()][line.vertices.get(1).getID()] = 2;
-            Graph.matrix[line.vertices.get(1).getID()][line.vertices.get(0).getID()] = 2;
-            // gets an arrayList of each box the ELine creates. The box is an arrayList of 4 vertices.
-            ArrayList<ArrayList<Vertex>> boxes = checkBox(line);
-            if (boxes != null) {
-                for (ArrayList<Vertex> box : boxes) {
-                    // looks through the counterBoxes arrayList and sets the matching one visible.
-                    checkMatching(box);
-                    // updates the score board
-                    if (Graph.getPlayer1Turn()) {
-                        Graph.setPlayer1Score(Graph.getPlayer1Score() + 1);
-                        Graph.getScore1().setScore();
-                    } else {
-                        Graph.setPlayer2Score(Graph.getPlayer2Score() + 1);
-                        Graph.getScore2().setScore();
-                    }
-                }
-                // if every counterBox has been activated, the game is over
-            } else {
-                Graph.setNumOfMoves(0);
-                // switches turn. If randomBot is active switches to their turn.
-            }
-        }else{
-            getRandomBot().placeRandomEdge();
-        }
-    }
+
     public static boolean checkFinished(){
         for(ScoreBox box: Graph.getCounterBoxes()){
             if(!box.getActivated()){
@@ -185,6 +227,9 @@ public class GameThread extends Thread{
         // gets an arrayList of each box the ELine creates. The box is an arrayList of 4 vertices.
         ArrayList<ArrayList<Vertex>> boxes = checkBox(line);
         if (boxes != null) {
+            if(boxes.size()>1){
+                doubleCross=!doubleCross;
+            }
             for (ArrayList<Vertex> box : boxes) {
                 // looks through the counterBoxes arrayList and sets the matching one visible.
                 checkMatching(box);
@@ -203,12 +248,18 @@ public class GameThread extends Thread{
             // switches turn. If randomBot is active switches to their turn.
         }
     }
+    static int counter=0;
     public static void clickEdge(int index) throws InterruptedException {
+        counter++;
 //    	System.out.println("Check finished is: "+checkFinished());
         ELine line = Graph.getAvailableLines().get(index);
         line.setActivated(true);
         // make it black
-        line.setBackground(Color.BLACK);
+        if(player1Turn) {
+            line.setBackground(Color.RED);
+        }else{
+            line.setBackground(Color.BLUE);
+        }
         line.repaint();
         // set the adjacency matrix to 2, 2==is a line, 1==is a possible line
         Graph.matrix[line.vertices.get(0).getID()][line.vertices.get(1).getID()] = 2;
@@ -216,6 +267,9 @@ public class GameThread extends Thread{
         // gets an arrayList of each box the ELine creates. The box is an arrayList of 4 vertices.
         ArrayList<ArrayList<Vertex>> boxes = checkBox(line);
         if (boxes != null) {
+            if(boxes.size()>1){
+                doubleCross=!doubleCross;
+            }
             for (ArrayList<Vertex> box : boxes) {
                 // looks through the counterBoxes arrayList and sets the matching one visible.
                 checkMatching(box);

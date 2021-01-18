@@ -11,22 +11,23 @@ public class GA {
     static int iterations = 10;
 
     public static void main(String[] args) throws IOException {
-        GA temp = new GA(1,0,-2.5,0.5,1);
+        GA temp = new GA(1,0,-0.25,0.5,1);
         temp.createBots();
     }
-    public static int  number=10;
+    public static int amountOfBots=10;
+    public static int  number=amountOfBots;
 
     public static MinMax tt;
-    public static int h = 4;
-    public static int w = 4;
-    public static int depth = 5;
+    public static int h = 5;
+    public static int w = 5;
+    public static int nodeExpansions = 500000;
 
     public static boolean finished=false;
     public static int wins;
     public static int draws;
     public static int loses;
 
-    public static int simulations = 25;
+    public static int simulations = 60;
     static double aRange= 0.5;
     static double bRange= 0.5;
     static double cRange= 1;
@@ -173,7 +174,7 @@ public class GA {
             t.setE(tempE);
             tt=t;
             System.out.println("num: "+number);
-            GameBoard a = new GameBoard(h, w, t, simulations, depth, true);
+            GameBoard a = new GameBoard(h, w, t, simulations, nodeExpansions, true);
         }
     }
     public static void sortBots() throws IOException {
@@ -249,7 +250,7 @@ public class GA {
                 e=value[4];
                 topValues=new ArrayList<>();
                 for(double[] a : values){
-                    if(a[5]>(max-2.5)){
+                    if(a[5]>(max-3)){
                         double[] val = new double[5];
                         val[0]=a[0];
                         val[1]=a[1];
@@ -270,7 +271,7 @@ public class GA {
                     val[4]=0;
                     topValues.add(val);
                 }
-                number=10;
+                number=amountOfBots;
                 createBots();
             }
         }else{

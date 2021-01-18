@@ -1,14 +1,13 @@
-package minMax;
+package game;
 
-import game.ELine;
-import game.Graph;
-import game.Vertex;
+import minMax.MinMax;
+import minMax.boxType;
 
 import java.util.ArrayList;
 
 
-public class Node{
-    public void setParent(Node parent) {
+public class BaseBotNode {
+    public void setParent(BaseBotNode parent) {
         this.parent = parent;
     }
 
@@ -21,7 +20,7 @@ public class Node{
     }
 
     int depth;
-    Node parent;
+    BaseBotNode parent;
     int[][] matrix;
     int botScore;
     int oScore;
@@ -32,7 +31,7 @@ public class Node{
     public ELine move;
     boolean doubleCross;
 
-    Node dummyTurn;
+    BaseBotNode dummyTurn;
 
 
 
@@ -59,22 +58,14 @@ public class Node{
 
         return toReturn;
     }
-
     public double evaluation(){
-        // a = score-opponent score
-        double a = botScore-oScore;
-        // b used to be the number of chains of any length, a disused heuristic
+        double a = 0;
         double b=0;
-        // d is the chain parity rule.
-        // First gets the number of long chains minus the number of loops.
         int numberOfLongChains = numberOfLongChains()-numberOfLongLoops();
         double d;
         if(numberOfLongChains==0){
             d=0;
         }else{
-            // if number of dots is odd and the bot is P1 or the number of dots is even and the bot is P2 then they want the chain parity to be odd
-            // else they want it to be even
-            // Each doublecross (edge that picks up 2 boxes) switches which parity is best.
             if((Graph.getHeight()*Graph.getWidth()%2!=0&&Graph.isMiniMaxP1())||(Graph.getHeight()*Graph.getWidth()%2==0&&!Graph.isMiniMaxP1())){
                 if(!doubleCross) {
                     if (numberOfLongChains % 2 != 0) {
@@ -105,42 +96,139 @@ public class Node{
                 }
             }
         }
-        // c is a negative weight assigned to the double dealing move
         double c;
         ArrayList<ELine> checksFor3s = checkFor3s();
         int checkFor3sSize = checksFor3s.size();
-        // if the move creates 2 boxes and there's no lines that don't set up a box for the other player and there's a longer chain avaiable
         if(doubleCross()&&checkFor3sSize==0&&isLongerChainAvailable()){
             c=1;
         }else{
             c=0;
         }
-        // simple win condition
         double e = 0;
-        if(availLines.size()==0){
-            if(botScore>oScore){
-                e=1;
-            }else{
-                if(botScore<oScore){
-                    e=-1;
-                }else{
-                    if(botScore==oScore){
-                        e=-0.1;
+        double a1 = 1;
+        double b1 = 0;
+        double c1 = -2.5;
+        double d1 = 0.5;
+        double e1 = 0;
+        double v = a1 * a + b1 * b + c1 * c+ d1*d+ e1*e;
+        int box = getBox();
+        if(box==0&&!parent.checkFor3s().contains(move)){
+            v=v-2;
+        }
+        v+=box;
+        if(checkFor3sSize==0&&isShortestChain()){
+            v+=2;
+        }
+        return v;
+    }
+    public int getBox(){
+        ArrayList<ArrayList<Vertex>> temp = checkBox(move,matrix);
+        if(temp!=null) {
+            return temp.size();
+        }
+        return 0;
+    }
+    public boolean isShortestChain(){
+        // double cross: if there's a longer chain available;
+        matrix=parent.matrix;
+        visited= new ArrayList<>();
+        for(int i=0;i<Graph.getHeight()-1;i++){
+            ArrayList<Boolean> row = new ArrayList<>();
+            for(int w=0;w<Graph.getWidth()-1;w++){
+                row.add(false);
+            }
+            visited.add(row);
+        }
+        int w = move.getVertices().get(0).id%Graph.getWidth();
+        int i = move.getVertices().get(1).id/Graph.getWidth();
+        if(i==Graph.getHeight()-1){
+            i--;
+        }
+        if(w==Graph.getWidth()-1){
+            w--;
+        }
+        int num=Integer.MAX_VALUE;
+        int top = matrix[(i * Graph.getWidth()) + w][(i * Graph.getWidth()) + w + 1];
+        int left = matrix[(i * Graph.getWidth()) + w][((i + 1) * Graph.getWidth()) + w];
+        int right = matrix[(i * Graph.getWidth()) + w + 1][((i + 1) * Graph.getWidth()) + w + 1];
+        int bottom = matrix[((i + 1) * Graph.getWidth()) + w][((i + 1) * Graph.getWidth()) + w + 1];
+        //sideways
+        if (top == 2 && bottom == 2 && left == 1 && right == 1) {
+            num=countNumBoxesInChain(i, w, 1, boxType.sideways, visited);
+        }
+        //bottomleft
+        if (left == 2 && bottom == 2 && right == 1 && top == 1) {
+            num=countNumBoxesInChain(i, w, 1, boxType.bottomleft, visited);
+
+        }
+        //topleft
+        if (top == 2 && left == 2 && bottom == 1 && right == 1) {
+            num=countNumBoxesInChain(i, w, 1, boxType.topleft, visited);
+
+        }
+        //bottomright
+        if (left == 1 && bottom == 2 && right == 2 && top == 1) {
+            num=countNumBoxesInChain(i, w, 1, boxType.bottomright, visited);
+
+        }
+        //topright
+        if (top == 2 && left == 1 && bottom == 1 && right == 2) {
+            num=countNumBoxesInChain(i, w, 1, boxType.topright, visited);
+
+        }
+        //longways
+        if (top == 1 && bottom == 1 && left == 2 && right == 2) {
+            num=countNumBoxesInChain(i, w, 1, boxType.longways, visited);
+
+        }
+        for(i=0;i<Graph.getHeight()-1;i++) {
+            for (w = 0; w < Graph.getWidth() - 1; w++) {
+                if (!visited.get(i).get(w)) {
+                    top = matrix[(i * Graph.getWidth()) + w][(i * Graph.getWidth()) + w + 1];
+                    left = matrix[(i * Graph.getWidth()) + w][((i + 1) * Graph.getWidth()) + w];
+                    right = matrix[(i * Graph.getWidth()) + w + 1][((i + 1) * Graph.getWidth()) + w + 1];
+                    bottom = matrix[((i + 1) * Graph.getWidth()) + w][((i + 1) * Graph.getWidth()) + w + 1];
+                    //sideways
+                    if (top == 2 && bottom == 2 && left == 1 && right == 1) {
+                        if (countNumBoxesInChain(i, w, 1, boxType.sideways, visited) < num) {
+                            return false;
+                        }
+                    }
+                    //bottomleft
+                    if (left == 2 && bottom == 2 && right == 1 && top == 1) {
+                        if (countNumBoxesInChain(i, w, 1, boxType.bottomleft, visited) < num) {
+                            return false;
+                        }
+                    }
+                    //topleft
+                    if (top == 2 && left == 2 && bottom == 1 && right == 1) {
+                        if (countNumBoxesInChain(i, w, 1, boxType.topleft, visited) < num) {
+                            return false;
+                        }
+                    }
+                    //bottomright
+                    if (left == 1 && bottom == 2 && right == 2 && top == 1) {
+                        if (countNumBoxesInChain(i, w, 1, boxType.bottomright, visited) < num) {
+                            return false;
+                        }
+                    }
+                    //topright
+                    if (top == 2 && left == 1 && bottom == 1 && right == 2) {
+                        if (countNumBoxesInChain(i, w, 1, boxType.topright, visited) < num) {
+                            return false;
+                        }
+                    }
+                    //longways
+                    if (top == 1 && bottom == 1 && left == 2 && right == 2) {
+                        if (countNumBoxesInChain(i, w, 1, boxType.longways, visited) < num) {
+                            return false;
+                        }
                     }
                 }
             }
         }
-        // multipliers
-        double a1 = MinMax.a;
-        double b1 = MinMax.b;
-        double c1 = MinMax.c;
-        double d1 = MinMax.d;
-        double e1 = MinMax.e;
-        double v = a1 * a + b1 * b + c1 * c+ d1*d+ e1*e;
-        return v;
+        return true;
     }
-
-
     public boolean isLongerChainAvailable(){
         // double cross: if there's a longer chain available;
         matrix=parent.matrix;
@@ -216,358 +304,6 @@ public class Node{
             return false;
         }
     }
-    public int numberOfLongChains(){
-        // creates an arraylist with a boolean for each box, represented whether that box has been visited.
-        visited= new ArrayList<>();
-        for(int i=0;i<Graph.getHeight()-1;i++){
-            ArrayList<Boolean> row = new ArrayList<>();
-            for(int w=0;w<Graph.getWidth()-1;w++){
-                row.add(false);
-            }
-            visited.add(row);
-        }
-        int count=0;
-        // goes through each box
-        for(int i=0;i<Graph.getHeight()-1;i++){
-            for(int w=0;w<Graph.getWidth()-1;w++){
-                if(!visited.get(i).get(w)){
-                    // Looks at each box and sees if it could be part of a chain
-                    // See boxType enum
-                    int top = matrix[(i*Graph.getWidth())+w][(i*Graph.getWidth())+w+1];
-                    int left = matrix[(i*Graph.getWidth())+w][((i+1)*Graph.getWidth())+w];
-                    int right = matrix[(i*Graph.getWidth())+w+1][((i+1)*Graph.getWidth())+w+1];
-                    int bottom = matrix[((i+1)*Graph.getWidth())+w][((i+1)*Graph.getWidth())+w+1];
-                    //sideways
-                    if(top==2&&bottom==2&&left==1&&right==1){
-                        if(countNumBoxesInChain(i,w,1,boxType.sideways,visited)>=3){
-                            count++;
-                        }
-                    }
-                    //bottomleft
-                    if(left==2&&bottom==2&&right==1&&top==1){
-                        if(countNumBoxesInChain(i,w,1,boxType.bottomleft,visited)>=3){
-                            count++;
-                        }
-                    }
-                    //topleft
-                    if(top==2&&left==2&&bottom==1&&right==1){
-                        if(countNumBoxesInChain(i,w,1,boxType.topleft,visited)>=3){
-                            count++;
-                        }
-                    }
-                    //bottomright
-                    if(left==1&&bottom==2&&right==2&&top==1){
-                        if(countNumBoxesInChain(i,w,1,boxType.bottomright,visited)>=3){
-                            count++;
-                        }
-                    }
-                    //topright
-                    if(top==2&&left==1&&bottom==1&&right==2){
-                        if(countNumBoxesInChain(i,w,1,boxType.topright,visited)>=3){
-                            count++;
-                        }
-                    }
-                    //longways
-                    if (top == 1 && bottom == 1 && left == 2 && right == 2) {
-                        if(countNumBoxesInChain(i,w,1,boxType.longways,visited)>=3){
-                            count++;
-                        }
-                    }
-                }
-            }
-        }
-        return count;
-    }
-
-
-    public int countNumBoxesInChain(int h,int w,int num, boxType type,ArrayList<ArrayList<Boolean>> visited){
-        // recursive algorithm that counts the number of boxes in a chain
-        // sets box to visited
-        visited.get(h).set(w,true);
-        if(type==boxType.sideways){
-            // A sideways box can only continue the chain to the left or the right.
-            //left
-            if(w>0&&!visited.get(h).get(w-1)){
-                int top = matrix[(h*Graph.getWidth())+w-1][(h*Graph.getWidth())+w];
-                int left = matrix[(h*Graph.getWidth())+w-1][((h+1)*Graph.getWidth())+w-1];
-                int right = matrix[(h*Graph.getWidth())+w][((h+1)*Graph.getWidth())+w];
-                int bottom = matrix[((h+1)*Graph.getWidth())+w-1][((h+1)*Graph.getWidth())+w];
-                //sideways
-                if(top==2&&bottom==2&&left==1&&right==1){
-                    num++;
-                    num=countNumBoxesInChain(h,w-1,num,boxType.sideways,visited);
-                }
-                //bottomleft
-                if(left==2&&bottom==2&&right==1&&top==1){
-                    num++;
-                    num=countNumBoxesInChain(h,w-1,num,boxType.bottomleft,visited);
-                }
-                //topleft
-                if(top==2&&left==2&&bottom==1&&right==1){
-                    num++;
-                    num=countNumBoxesInChain(h,w-1,num,boxType.topleft,visited);
-                }
-            }
-            //right
-            if(w!=Graph.getWidth()-2&&!visited.get(h).get(w+1)){
-                int top = matrix[(h*Graph.getWidth())+w+2][(h*Graph.getWidth())+w+1];
-                int left = matrix[(h*Graph.getWidth())+w+1][((h+1)*Graph.getWidth())+w+1];
-                int right = matrix[(h*Graph.getWidth())+w+2][((h+1)*Graph.getWidth())+w+2];
-                int bottom = matrix[((h+1)*Graph.getWidth())+w+1][((h+1)*Graph.getWidth())+w+2];
-                //sideways
-                if(top==2&&bottom==2&&left==1&&right==1){
-                    num++;
-                    num=countNumBoxesInChain(h,w+1,num,boxType.sideways,visited);
-                }
-                //bottomright
-                if(left==1&&bottom==2&&right==2&&top==1){
-                    num++;
-                    num=countNumBoxesInChain(h,w+1,num,boxType.bottomright,visited);
-                }
-                //topright
-                if(top==2&&left==1&&bottom==1&&right==2){
-                    num++;
-                    num=countNumBoxesInChain(h,w+1,num,boxType.topright,visited);
-                }
-            }
-        }
-        if(type==boxType.topleft) {
-            // A top left box can only continue the chain down or to the right.
-            //right
-            if (w != Graph.getWidth()-2 && !visited.get(h).get(w + 1)) {
-                int top = matrix[(h * Graph.getWidth()) + w + 2][(h * Graph.getWidth()) + w + 1];
-                int left = matrix[(h * Graph.getWidth()) + w + 1][((h + 1) * Graph.getWidth()) + w + 1];
-                int right = matrix[(h * Graph.getWidth()) + w + 2][((h + 1) * Graph.getWidth()) + w + 2];
-                int bottom = matrix[((h + 1) * Graph.getWidth()) + w + 1][((h + 1) * Graph.getWidth()) + w + 2];
-                //sideways
-                if (top == 2 && bottom == 2 && left == 1 && right == 1) {
-                    num++;
-                    num = countNumBoxesInChain(h, w + 1, num, boxType.sideways, visited);
-                }
-                //bottomright
-                if (left == 1 && bottom == 2 && right == 2 && top == 1) {
-                    num++;
-                    num = countNumBoxesInChain(h, w + 1, num, boxType.bottomright, visited);
-                }
-                //topright
-                if (top == 2 && left == 1 && bottom == 1 && right == 2) {
-                    num++;
-                    num = countNumBoxesInChain(h, w + 1, num, boxType.topright, visited);
-                }
-            }
-            //down
-            if (h != Graph.getHeight()-2 && !visited.get(h + 1).get(w)) {
-                int top = matrix[((h + 1) * Graph.getWidth()) + w][((h + 1) * Graph.getWidth()) + w + 1];
-                int left = matrix[((h + 1) * Graph.getWidth()) + w][((h + 2) * Graph.getWidth()) + w];
-                int right = matrix[((h + 1) * Graph.getWidth()) + w + 1][((h + 2) * Graph.getWidth()) + w + 1];
-                int bottom = matrix[((h + 2) * Graph.getWidth()) + w + 1][((h + 2) * Graph.getWidth()) + w];
-                //longways
-                if (top == 1 && bottom == 1 && left == 2 && right == 2) {
-                    num++;
-                    num = countNumBoxesInChain(h + 1, w, num, boxType.longways, visited);
-                }
-                //bottomright
-                if (left == 1 && bottom == 2 && right == 2 && top == 1) {
-                    num++;
-                    num = countNumBoxesInChain(h + 1, w, num, boxType.bottomright, visited);
-                }
-                //bottomleft
-                if (top == 1 && left == 2 && bottom == 2 && right == 1) {
-                    num++;
-                    num = countNumBoxesInChain(h + 1, w, num, boxType.bottomleft, visited);
-                }
-            }
-        }
-        if(type==boxType.topright) {
-            // A top right box can only continue the chain down or to the left.
-            //left
-            if(w-1>=0&&!visited.get(h).get(w-1)){
-                int top = matrix[(h*Graph.getWidth())+w-1][(h*Graph.getWidth())+w];
-                int left = matrix[(h*Graph.getWidth())+w-1][((h+1)*Graph.getWidth())+w-1];
-                int right = matrix[(h*Graph.getWidth())+w][((h+1)*Graph.getWidth())+w];
-                int bottom = matrix[((h+1)*Graph.getWidth())+w-1][((h+1)*Graph.getWidth())+w];
-                //sideways
-                if(top==2&&bottom==2&&left==1&&right==1){
-                    num++;
-                    num=countNumBoxesInChain(h,w-1,num,boxType.sideways,visited);
-                }
-                //bottomleft
-                if(left==2&&bottom==2&&right==1&&top==1){
-                    num++;
-                    num=countNumBoxesInChain(h,w-1,num,boxType.bottomleft,visited);
-                }
-                //topleft
-                if(top==2&&left==2&&bottom==1&&right==1){
-                    num++;
-                    num=countNumBoxesInChain(h,w-1,num,boxType.topleft,visited);
-                }
-            }
-            //down
-            if (h != Graph.getHeight()-2 && !visited.get(h + 1).get(w)) {
-                int top = matrix[((h + 1) * Graph.getWidth()) + w][((h + 1) * Graph.getWidth()) + w + 1];
-                int left = matrix[((h + 1) * Graph.getWidth()) + w][((h + 2) * Graph.getWidth()) + w];
-                int right = matrix[((h + 1) * Graph.getWidth()) + w + 1][((h + 2) * Graph.getWidth()) + w + 1];
-                int bottom = matrix[((h + 2) * Graph.getWidth()) + w + 1][((h + 2) * Graph.getWidth()) + w];
-                //longways
-                if (top == 1 && bottom == 1 && left == 2 && right == 2) {
-                    num++;
-                    num = countNumBoxesInChain(h + 1, w, num, boxType.longways, visited);
-                }
-                //bottomright
-                if (left == 1 && bottom == 2 && right == 2 && top == 1) {
-                    num++;
-                    num = countNumBoxesInChain(h + 1, w, num, boxType.bottomright, visited);
-                }
-                //bottomleft
-                if (top == 1 && left == 2 && bottom == 2 && right == 1) {
-                    num++;
-                    num = countNumBoxesInChain(h + 1, w, num, boxType.bottomleft, visited);
-                }
-            }
-        }
-        if(type==boxType.bottomright) {
-            // A bottom right box can only continue the chain up or to the left.
-            //left
-            if(w-1>=0&&!visited.get(h).get(w-1)){
-                int top = matrix[(h*Graph.getWidth())+w-1][(h*Graph.getWidth())+w];
-                int left = matrix[(h*Graph.getWidth())+w-1][((h+1)*Graph.getWidth())+w-1];
-                int right = matrix[(h*Graph.getWidth())+w][((h+1)*Graph.getWidth())+w];
-                int bottom = matrix[((h+1)*Graph.getWidth())+w-1][((h+1)*Graph.getWidth())+w];
-                //sideways
-                if(top==2&&bottom==2&&left==1&&right==1){
-                    num++;
-                    num=countNumBoxesInChain(h,w-1,num,boxType.sideways,visited);
-                }
-                //bottomleft
-                if(left==2&&bottom==2&&right==1&&top==1){
-                    num++;
-                    num=countNumBoxesInChain(h,w-1,num,boxType.bottomleft,visited);
-                }
-                //topleft
-                if(top==2&&left==2&&bottom==1&&right==1){
-                    num++;
-                    num=countNumBoxesInChain(h,w-1,num,boxType.topleft,visited);
-                }
-            }
-            //up
-            if (h - 1 >= 0 && !visited.get(h - 1).get(w)) {
-                int top = matrix[((h - 1) * Graph.getWidth()) + w][((h - 1) * Graph.getWidth()) + w + 1];
-                int left = matrix[((h - 1) * Graph.getWidth()) + w][((h) * Graph.getWidth()) + w];
-                int right = matrix[((h - 1) * Graph.getWidth()) + w + 1][((h) * Graph.getWidth()) + w + 1];
-                int bottom = matrix[((h) * Graph.getWidth()) + w + 1][((h) * Graph.getWidth()) + w];
-                //longways
-                if (top == 1 && bottom == 1 && left == 2 && right == 2) {
-                    num++;
-                    num = countNumBoxesInChain(h - 1, w, num, boxType.longways, visited);
-                }
-                //topright
-                if (left == 2 && bottom == 1 && right == 1 && top == 2) {
-                    num++;
-                    num = countNumBoxesInChain(h - 1, w, num, boxType.topright, visited);
-                }
-                //topleft
-                if (top == 2 && left == 1 && bottom == 1 && right == 2) {
-                    num++;
-                    num = countNumBoxesInChain(h - 1, w, num, boxType.topleft, visited);
-                }
-            }
-        }
-        if(type==boxType.bottomleft){
-            // A bottom left box can only continue the chain up or to the right.
-            //right
-            if (w != Graph.getWidth()-2 && !visited.get(h).get(w + 1)) {
-                int top = matrix[(h * Graph.getWidth()) + w + 2][(h * Graph.getWidth()) + w + 1];
-                int left = matrix[(h * Graph.getWidth()) + w + 1][((h + 1) * Graph.getWidth()) + w + 1];
-                int right = matrix[(h * Graph.getWidth()) + w + 2][((h + 1) * Graph.getWidth()) + w + 2];
-                int bottom = matrix[((h + 1) * Graph.getWidth()) + w + 1][((h + 1) * Graph.getWidth()) + w + 2];
-                //sideways
-                if (top == 2 && bottom == 2 && left == 1 && right == 1) {
-                    num++;
-                    num = countNumBoxesInChain(h, w + 1, num, boxType.sideways, visited);
-                }
-                //bottomright
-                if (left == 1 && bottom == 2 && right == 2 && top == 1) {
-                    num++;
-                    num = countNumBoxesInChain(h, w + 1, num, boxType.bottomright, visited);
-                }
-                //topright
-                if (top == 2 && left == 1 && bottom == 1 && right == 2) {
-                    num++;
-                    num = countNumBoxesInChain(h, w + 1, num, boxType.topright, visited);
-                }
-            }
-            //up
-            if (h - 1 >= 0 && !visited.get(h - 1).get(w)) {
-                int top = matrix[((h - 1) * Graph.getWidth()) + w][((h - 1) * Graph.getWidth()) + w + 1];
-                int left = matrix[((h - 1) * Graph.getWidth()) + w][((h) * Graph.getWidth()) + w];
-                int right = matrix[((h - 1) * Graph.getWidth()) + w + 1][((h) * Graph.getWidth()) + w + 1];
-                int bottom = matrix[((h) * Graph.getWidth()) + w + 1][((h) * Graph.getWidth()) + w];
-                //longways
-                if (top == 1 && bottom == 1 && left == 2 && right == 2) {
-                    num++;
-                    num = countNumBoxesInChain(h - 1, w, num, boxType.longways, visited);
-                }
-                //topright
-                if (left == 2 && bottom == 1 && right == 1 && top == 2) {
-                    num++;
-                    num = countNumBoxesInChain(h - 1, w, num, boxType.topright, visited);
-                }
-                //topleft
-                if (top == 2 && left == 1 && bottom == 1 && right == 2) {
-                    num++;
-                    num = countNumBoxesInChain(h - 1, w, num, boxType.topleft, visited);
-                }
-            }
-        }
-        if(type==boxType.longways){
-            // A top left box can only continue the chain down or up.
-            //up
-            if (h - 1 >= 0 && !visited.get(h - 1).get(w)) {
-                int top = matrix[((h - 1) * Graph.getWidth()) + w][((h - 1) * Graph.getWidth()) + w + 1];
-                int left = matrix[((h - 1) * Graph.getWidth()) + w][((h) * Graph.getWidth()) + w];
-                int right = matrix[((h - 1) * Graph.getWidth()) + w + 1][((h) * Graph.getWidth()) + w + 1];
-                int bottom = matrix[((h) * Graph.getWidth()) + w + 1][((h) * Graph.getWidth()) + w];
-                //longways
-                if (top == 1 && bottom == 1 && left == 2 && right == 2) {
-                    num++;
-                    num = countNumBoxesInChain(h - 1, w, num, boxType.longways, visited);
-                }
-                //topright
-                if (left == 2 && bottom == 1 && right == 1 && top == 2) {
-                    num++;
-                    num = countNumBoxesInChain(h - 1, w, num, boxType.topright, visited);
-                }
-                //topleft
-                if (top == 2 && left == 1 && bottom == 1 && right == 2) {
-                    num++;
-                    num = countNumBoxesInChain(h - 1, w, num, boxType.topleft, visited);
-                }
-            }
-            //down
-            if (h != Graph.getHeight()-2 && !visited.get(h + 1).get(w)) {
-                int top = matrix[((h + 1) * Graph.getWidth()) + w][((h + 1) * Graph.getWidth()) + w + 1];
-                int left = matrix[((h + 1) * Graph.getWidth()) + w][((h + 2) * Graph.getWidth()) + w];
-                int right = matrix[((h + 1) * Graph.getWidth()) + w + 1][((h + 2) * Graph.getWidth()) + w + 1];
-                int bottom = matrix[((h + 2) * Graph.getWidth()) + w + 1][((h + 2) * Graph.getWidth()) + w];
-                //longways
-                if (top == 1 && bottom == 1 && left == 2 && right == 2) {
-                    num++;
-                    num = countNumBoxesInChain(h + 1, w, num, boxType.longways, visited);
-                }
-                //bottomright
-                if (left == 1 && bottom == 2 && right == 2 && top == 1) {
-                    num++;
-                    num = countNumBoxesInChain(h + 1, w, num, boxType.bottomright, visited);
-                }
-                //bottomleft
-                if (top == 1 && left == 2 && bottom == 2 && right == 1) {
-                    num++;
-                    num = countNumBoxesInChain(h + 1, w, num, boxType.bottomleft, visited);
-                }
-            }
-        }
-        return num;
-    }
 
     static ArrayList<ArrayList<Integer>> loopVisited;
     public int numberOfLongLoops(){
@@ -613,7 +349,6 @@ public class Node{
                     if(left==1&&bottom==2&&right==2&&top==1){
                         int d = countNumBoxesInLoop(i,w,1,boxType.bottomright,loopVisited,true);
                         if(d>=4){
-                            System.out.println("YYYYYYYYYYYYYYY");
                             count++;
                         }
 
@@ -642,7 +377,6 @@ public class Node{
     }
 
     public int countNumBoxesInLoop(int h,int w,int num, boxType type,ArrayList<ArrayList<Integer>> visited,boolean first){
-        // similar to the chain counting except returns the value if the algorithm returns back to it's original position
         if(first) {
             visited.get(h).set(w, 2);
         }else{
@@ -1146,7 +880,6 @@ public class Node{
     }
 
     static ArrayList<ArrayList<Boolean>> visited;
-    /*
     public int numberOfChains(){
         visited= new ArrayList<>();
         for(int i=0;i<Graph.getHeight()-1;i++){
@@ -1205,13 +938,349 @@ public class Node{
         }
         return count;
     }
+    public int numberOfLongChains(){
+        visited= new ArrayList<>();
+        for(int i=0;i<Graph.getHeight()-1;i++){
+            ArrayList<Boolean> row = new ArrayList<>();
+            for(int w=0;w<Graph.getWidth()-1;w++){
+                row.add(false);
+            }
+            visited.add(row);
+        }
+        int count=0;
+        for(int i=0;i<Graph.getHeight()-1;i++){
+            for(int w=0;w<Graph.getWidth()-1;w++){
+                if(!visited.get(i).get(w)){
+                    int top = matrix[(i*Graph.getWidth())+w][(i*Graph.getWidth())+w+1];
+                    int left = matrix[(i*Graph.getWidth())+w][((i+1)*Graph.getWidth())+w];
+                    int right = matrix[(i*Graph.getWidth())+w+1][((i+1)*Graph.getWidth())+w+1];
+                    int bottom = matrix[((i+1)*Graph.getWidth())+w][((i+1)*Graph.getWidth())+w+1];
+                    //sideways
+                    if(top==2&&bottom==2&&left==1&&right==1){
+                        if(countNumBoxesInChain(i,w,1,boxType.sideways,visited)>=3){
+                            count++;
+                        }
+                    }
+                    //bottomleft
+                    if(left==2&&bottom==2&&right==1&&top==1){
+                        if(countNumBoxesInChain(i,w,1,boxType.bottomleft,visited)>=3){
+                            count++;
+                        }
+                    }
+                    //topleft
+                    if(top==2&&left==2&&bottom==1&&right==1){
+                        if(countNumBoxesInChain(i,w,1,boxType.topleft,visited)>=3){
+                            count++;
+                        }
+                    }
+                    //bottomright
+                    if(left==1&&bottom==2&&right==2&&top==1){
+                        if(countNumBoxesInChain(i,w,1,boxType.bottomright,visited)>=3){
+                            count++;
+                        }
+                    }
+                    //topright
+                    if(top==2&&left==1&&bottom==1&&right==2){
+                        if(countNumBoxesInChain(i,w,1,boxType.topright,visited)>=3){
+                            count++;
+                        }
+                    }
+                    //longways
+                    if (top == 1 && bottom == 1 && left == 2 && right == 2) {
+                        if(countNumBoxesInChain(i,w,1,boxType.longways,visited)>=3){
+                            count++;
+                        }
+                    }
+                }
+            }
+        }
+        return count;
+    }
 
-     */
+
+    public int countNumBoxesInChain(int h,int w,int num, boxType type,ArrayList<ArrayList<Boolean>> visited){
+        visited.get(h).set(w,true);
+        if(type==boxType.sideways){
+            //left
+            if(w>0&&!visited.get(h).get(w-1)){
+                int top = matrix[(h*Graph.getWidth())+w-1][(h*Graph.getWidth())+w];
+                int left = matrix[(h*Graph.getWidth())+w-1][((h+1)*Graph.getWidth())+w-1];
+                int right = matrix[(h*Graph.getWidth())+w][((h+1)*Graph.getWidth())+w];
+                int bottom = matrix[((h+1)*Graph.getWidth())+w-1][((h+1)*Graph.getWidth())+w];
+                //sideways
+                if(top==2&&bottom==2&&left==1&&right==1){
+                    num++;
+                    num=countNumBoxesInChain(h,w-1,num,boxType.sideways,visited);
+                }
+                //bottomleft
+                if(left==2&&bottom==2&&right==1&&top==1){
+                    num++;
+                    num=countNumBoxesInChain(h,w-1,num,boxType.bottomleft,visited);
+                }
+                //topleft
+                if(top==2&&left==2&&bottom==1&&right==1){
+                    num++;
+                    num=countNumBoxesInChain(h,w-1,num,boxType.topleft,visited);
+                }
+            }
+            //right
+            if(w!=Graph.getWidth()-2&&!visited.get(h).get(w+1)){
+                int top = matrix[(h*Graph.getWidth())+w+2][(h*Graph.getWidth())+w+1];
+                int left = matrix[(h*Graph.getWidth())+w+1][((h+1)*Graph.getWidth())+w+1];
+                int right = matrix[(h*Graph.getWidth())+w+2][((h+1)*Graph.getWidth())+w+2];
+                int bottom = matrix[((h+1)*Graph.getWidth())+w+1][((h+1)*Graph.getWidth())+w+2];
+                //sideways
+                if(top==2&&bottom==2&&left==1&&right==1){
+                    num++;
+                    num=countNumBoxesInChain(h,w+1,num,boxType.sideways,visited);
+                }
+                //bottomright
+                if(left==1&&bottom==2&&right==2&&top==1){
+                    num++;
+                    num=countNumBoxesInChain(h,w+1,num,boxType.bottomright,visited);
+                }
+                //topright
+                if(top==2&&left==1&&bottom==1&&right==2){
+                    num++;
+                    num=countNumBoxesInChain(h,w+1,num,boxType.topright,visited);
+                }
+            }
+        }
+        if(type==boxType.topleft) {
+            //right
+            if (w != Graph.getWidth()-2 && !visited.get(h).get(w + 1)) {
+                int top = matrix[(h * Graph.getWidth()) + w + 2][(h * Graph.getWidth()) + w + 1];
+                int left = matrix[(h * Graph.getWidth()) + w + 1][((h + 1) * Graph.getWidth()) + w + 1];
+                int right = matrix[(h * Graph.getWidth()) + w + 2][((h + 1) * Graph.getWidth()) + w + 2];
+                int bottom = matrix[((h + 1) * Graph.getWidth()) + w + 1][((h + 1) * Graph.getWidth()) + w + 2];
+                //sideways
+                if (top == 2 && bottom == 2 && left == 1 && right == 1) {
+                    num++;
+                    num = countNumBoxesInChain(h, w + 1, num, boxType.sideways, visited);
+                }
+                //bottomright
+                if (left == 1 && bottom == 2 && right == 2 && top == 1) {
+                    num++;
+                    num = countNumBoxesInChain(h, w + 1, num, boxType.bottomright, visited);
+                }
+                //topright
+                if (top == 2 && left == 1 && bottom == 1 && right == 2) {
+                    num++;
+                    num = countNumBoxesInChain(h, w + 1, num, boxType.topright, visited);
+                }
+            }
+            //down
+            if (h != Graph.getHeight()-2 && !visited.get(h + 1).get(w)) {
+                int top = matrix[((h + 1) * Graph.getWidth()) + w][((h + 1) * Graph.getWidth()) + w + 1];
+                int left = matrix[((h + 1) * Graph.getWidth()) + w][((h + 2) * Graph.getWidth()) + w];
+                int right = matrix[((h + 1) * Graph.getWidth()) + w + 1][((h + 2) * Graph.getWidth()) + w + 1];
+                int bottom = matrix[((h + 2) * Graph.getWidth()) + w + 1][((h + 2) * Graph.getWidth()) + w];
+                //longways
+                if (top == 1 && bottom == 1 && left == 2 && right == 2) {
+                    num++;
+                    num = countNumBoxesInChain(h + 1, w, num, boxType.longways, visited);
+                }
+                //bottomright
+                if (left == 1 && bottom == 2 && right == 2 && top == 1) {
+                    num++;
+                    num = countNumBoxesInChain(h + 1, w, num, boxType.bottomright, visited);
+                }
+                //bottomleft
+                if (top == 1 && left == 2 && bottom == 2 && right == 1) {
+                    num++;
+                    num = countNumBoxesInChain(h + 1, w, num, boxType.bottomleft, visited);
+                }
+             }
+        }
+        if(type==boxType.topright) {
+            //left
+            if(w-1>=0&&!visited.get(h).get(w-1)){
+                int top = matrix[(h*Graph.getWidth())+w-1][(h*Graph.getWidth())+w];
+                int left = matrix[(h*Graph.getWidth())+w-1][((h+1)*Graph.getWidth())+w-1];
+                int right = matrix[(h*Graph.getWidth())+w][((h+1)*Graph.getWidth())+w];
+                int bottom = matrix[((h+1)*Graph.getWidth())+w-1][((h+1)*Graph.getWidth())+w];
+                //sideways
+                if(top==2&&bottom==2&&left==1&&right==1){
+                    num++;
+                    num=countNumBoxesInChain(h,w-1,num,boxType.sideways,visited);
+                }
+                //bottomleft
+                if(left==2&&bottom==2&&right==1&&top==1){
+                    num++;
+                    num=countNumBoxesInChain(h,w-1,num,boxType.bottomleft,visited);
+                }
+                //topleft
+                if(top==2&&left==2&&bottom==1&&right==1){
+                    num++;
+                    num=countNumBoxesInChain(h,w-1,num,boxType.topleft,visited);
+                }
+            }
+            //down
+            if (h != Graph.getHeight()-2 && !visited.get(h + 1).get(w)) {
+                int top = matrix[((h + 1) * Graph.getWidth()) + w][((h + 1) * Graph.getWidth()) + w + 1];
+                int left = matrix[((h + 1) * Graph.getWidth()) + w][((h + 2) * Graph.getWidth()) + w];
+                int right = matrix[((h + 1) * Graph.getWidth()) + w + 1][((h + 2) * Graph.getWidth()) + w + 1];
+                int bottom = matrix[((h + 2) * Graph.getWidth()) + w + 1][((h + 2) * Graph.getWidth()) + w];
+                //longways
+                if (top == 1 && bottom == 1 && left == 2 && right == 2) {
+                    num++;
+                    num = countNumBoxesInChain(h + 1, w, num, boxType.longways, visited);
+                }
+                //bottomright
+                if (left == 1 && bottom == 2 && right == 2 && top == 1) {
+                    num++;
+                    num = countNumBoxesInChain(h + 1, w, num, boxType.bottomright, visited);
+                }
+                //bottomleft
+                if (top == 1 && left == 2 && bottom == 2 && right == 1) {
+                    num++;
+                    num = countNumBoxesInChain(h + 1, w, num, boxType.bottomleft, visited);
+                }
+            }
+        }
+        if(type==boxType.bottomright) {
+            //left
+            if(w-1>=0&&!visited.get(h).get(w-1)){
+                int top = matrix[(h*Graph.getWidth())+w-1][(h*Graph.getWidth())+w];
+                int left = matrix[(h*Graph.getWidth())+w-1][((h+1)*Graph.getWidth())+w-1];
+                int right = matrix[(h*Graph.getWidth())+w][((h+1)*Graph.getWidth())+w];
+                int bottom = matrix[((h+1)*Graph.getWidth())+w-1][((h+1)*Graph.getWidth())+w];
+                //sideways
+                if(top==2&&bottom==2&&left==1&&right==1){
+                    num++;
+                    num=countNumBoxesInChain(h,w-1,num,boxType.sideways,visited);
+                }
+                //bottomleft
+                if(left==2&&bottom==2&&right==1&&top==1){
+                    num++;
+                    num=countNumBoxesInChain(h,w-1,num,boxType.bottomleft,visited);
+                }
+                //topleft
+                if(top==2&&left==2&&bottom==1&&right==1){
+                    num++;
+                    num=countNumBoxesInChain(h,w-1,num,boxType.topleft,visited);
+                }
+            }
+            //up
+            if (h - 1 >= 0 && !visited.get(h - 1).get(w)) {
+                int top = matrix[((h - 1) * Graph.getWidth()) + w][((h - 1) * Graph.getWidth()) + w + 1];
+                int left = matrix[((h - 1) * Graph.getWidth()) + w][((h) * Graph.getWidth()) + w];
+                int right = matrix[((h - 1) * Graph.getWidth()) + w + 1][((h) * Graph.getWidth()) + w + 1];
+                int bottom = matrix[((h) * Graph.getWidth()) + w + 1][((h) * Graph.getWidth()) + w];
+                //longways
+                if (top == 1 && bottom == 1 && left == 2 && right == 2) {
+                    num++;
+                    num = countNumBoxesInChain(h - 1, w, num, boxType.longways, visited);
+                }
+                //topright
+                if (left == 2 && bottom == 1 && right == 1 && top == 2) {
+                    num++;
+                    num = countNumBoxesInChain(h - 1, w, num, boxType.topright, visited);
+                }
+                //topleft
+                if (top == 2 && left == 1 && bottom == 1 && right == 2) {
+                    num++;
+                    num = countNumBoxesInChain(h - 1, w, num, boxType.topleft, visited);
+                }
+            }
+        }
+        if(type==boxType.bottomleft){
+            //right
+            if (w != Graph.getWidth()-2 && !visited.get(h).get(w + 1)) {
+                int top = matrix[(h * Graph.getWidth()) + w + 2][(h * Graph.getWidth()) + w + 1];
+                int left = matrix[(h * Graph.getWidth()) + w + 1][((h + 1) * Graph.getWidth()) + w + 1];
+                int right = matrix[(h * Graph.getWidth()) + w + 2][((h + 1) * Graph.getWidth()) + w + 2];
+                int bottom = matrix[((h + 1) * Graph.getWidth()) + w + 1][((h + 1) * Graph.getWidth()) + w + 2];
+                //sideways
+                if (top == 2 && bottom == 2 && left == 1 && right == 1) {
+                    num++;
+                    num = countNumBoxesInChain(h, w + 1, num, boxType.sideways, visited);
+                }
+                //bottomright
+                if (left == 1 && bottom == 2 && right == 2 && top == 1) {
+                    num++;
+                    num = countNumBoxesInChain(h, w + 1, num, boxType.bottomright, visited);
+                }
+                //topright
+                if (top == 2 && left == 1 && bottom == 1 && right == 2) {
+                    num++;
+                    num = countNumBoxesInChain(h, w + 1, num, boxType.topright, visited);
+                }
+            }
+            //up
+            if (h - 1 >= 0 && !visited.get(h - 1).get(w)) {
+                int top = matrix[((h - 1) * Graph.getWidth()) + w][((h - 1) * Graph.getWidth()) + w + 1];
+                int left = matrix[((h - 1) * Graph.getWidth()) + w][((h) * Graph.getWidth()) + w];
+                int right = matrix[((h - 1) * Graph.getWidth()) + w + 1][((h) * Graph.getWidth()) + w + 1];
+                int bottom = matrix[((h) * Graph.getWidth()) + w + 1][((h) * Graph.getWidth()) + w];
+                //longways
+                if (top == 1 && bottom == 1 && left == 2 && right == 2) {
+                    num++;
+                    num = countNumBoxesInChain(h - 1, w, num, boxType.longways, visited);
+                }
+                //topright
+                if (left == 2 && bottom == 1 && right == 1 && top == 2) {
+                    num++;
+                    num = countNumBoxesInChain(h - 1, w, num, boxType.topright, visited);
+                }
+                //topleft
+                if (top == 2 && left == 1 && bottom == 1 && right == 2) {
+                    num++;
+                    num = countNumBoxesInChain(h - 1, w, num, boxType.topleft, visited);
+                }
+            }
+        }
+        if(type==boxType.longways){
+            //up
+            if (h - 1 >= 0 && !visited.get(h - 1).get(w)) {
+                int top = matrix[((h - 1) * Graph.getWidth()) + w][((h - 1) * Graph.getWidth()) + w + 1];
+                int left = matrix[((h - 1) * Graph.getWidth()) + w][((h) * Graph.getWidth()) + w];
+                int right = matrix[((h - 1) * Graph.getWidth()) + w + 1][((h) * Graph.getWidth()) + w + 1];
+                int bottom = matrix[((h) * Graph.getWidth()) + w + 1][((h) * Graph.getWidth()) + w];
+                //longways
+                if (top == 1 && bottom == 1 && left == 2 && right == 2) {
+                    num++;
+                    num = countNumBoxesInChain(h - 1, w, num, boxType.longways, visited);
+                }
+                //topright
+                if (left == 2 && bottom == 1 && right == 1 && top == 2) {
+                    num++;
+                    num = countNumBoxesInChain(h - 1, w, num, boxType.topright, visited);
+                }
+                //topleft
+                if (top == 2 && left == 1 && bottom == 1 && right == 2) {
+                    num++;
+                    num = countNumBoxesInChain(h - 1, w, num, boxType.topleft, visited);
+                }
+            }
+            //down
+            if (h != Graph.getHeight()-2 && !visited.get(h + 1).get(w)) {
+                int top = matrix[((h + 1) * Graph.getWidth()) + w][((h + 1) * Graph.getWidth()) + w + 1];
+                int left = matrix[((h + 1) * Graph.getWidth()) + w][((h + 2) * Graph.getWidth()) + w];
+                int right = matrix[((h + 1) * Graph.getWidth()) + w + 1][((h + 2) * Graph.getWidth()) + w + 1];
+                int bottom = matrix[((h + 2) * Graph.getWidth()) + w + 1][((h + 2) * Graph.getWidth()) + w];
+                //longways
+                if (top == 1 && bottom == 1 && left == 2 && right == 2) {
+                    num++;
+                    num = countNumBoxesInChain(h + 1, w, num, boxType.longways, visited);
+                }
+                //bottomright
+                if (left == 1 && bottom == 2 && right == 2 && top == 1) {
+                    num++;
+                    num = countNumBoxesInChain(h + 1, w, num, boxType.bottomright, visited);
+                }
+                //bottomleft
+                if (top == 1 && left == 2 && bottom == 2 && right == 1) {
+                    num++;
+                    num = countNumBoxesInChain(h + 1, w, num, boxType.bottomleft, visited);
+                }
+            }
+        }
+        return num;
+    }
 
 
-
-
-    public Node(int[][] m, int bs,int os, ArrayList<ELine> av, boolean p1T,boolean bonusTurn,boolean t,ELine move,boolean doubleCross){
+    public BaseBotNode(int[][] m, int bs, int os, ArrayList<ELine> av, boolean p1T, boolean bonusTurn, boolean t, ELine move, boolean doubleCross){
         matrix=m;
         botScore=bs;
         oScore=os;
@@ -1223,7 +1292,7 @@ public class Node{
         dummyTurn=null;
         this.doubleCross=doubleCross;
     }
-    public Node(Node dummy){
+    public BaseBotNode(BaseBotNode dummy){
         this.dummyTurn=dummy;
         botTurn=!dummyTurn.botTurn;
         matrix=dummyTurn.matrix;
@@ -1253,8 +1322,7 @@ public class Node{
         return temp;
     }
 
-    public Node performMove(ELine line) {
-        // Takes in a move and returns a node as if that move was performed on this state
+    public BaseBotNode performMove(ELine line) {
         int score = botScore;
         int oScore = this.oScore;
         boolean turn;
@@ -1285,9 +1353,9 @@ public class Node{
             turn = this.botTurn;
         }
         if(al.size()==0){
-            return new Node(newMatrix,score,oScore,al,turn,bonTurn,true,line,doubleCros);
+            return new BaseBotNode(newMatrix,score,oScore,al,turn,bonTurn,true,line,doubleCros);
         }
-        return new Node(newMatrix,score,oScore,al,turn,bonTurn,false,line,doubleCros);
+        return new BaseBotNode(newMatrix,score,oScore,al,turn,bonTurn,false,line,doubleCros);
     }
 
     public ArrayList<ArrayList<Vertex>> checkBox(ELine line, int[][] GState) {

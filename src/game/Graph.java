@@ -3,6 +3,7 @@ package game;
 
 import javax.swing.*;
 
+import MCTS.MCTSTree;
 import minMax.MinMax;
 
 import java.io.IOException;
@@ -10,6 +11,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class Graph {
+    public static BaseBotPlus baseB = new BaseBotPlus();
+    public static boolean isBaseBotPlusOn=false;
+    public static boolean baseBotP1=true;
+
+    public static boolean doubleCross=false;
+
+    public static int minMaxNodesExpansion=1000000000;
 
     public static boolean GASim=false;
 
@@ -20,19 +28,19 @@ public class Graph {
     public static int sims;
 
 
-    static boolean bothMinMax=false;
-    public static int minMaxDepth = 5;
-    public static int actualMinMaxDepth=minMaxDepth;
+    static boolean bothMinMax=true;
+   // public static int minMaxDepth = 5;
+    public static int actualMinMaxDepth;
 
-    static MinMax t = new MinMax();
+    static MinMax t;
 
     static boolean completelyRandom=false;
     static boolean randP1=false;
 
 
-    public static void setMinMaxDepth(int minMaxDepth) {
-        Graph.minMaxDepth = minMaxDepth;
-    }
+   // public static void setMinMaxDepth(int minMaxDepth) {
+      //  Graph.minMaxDepth = minMaxDepth;
+    //}
 
     public static void setT(MinMax t) {
         Graph.t = t;
@@ -42,7 +50,7 @@ public class Graph {
         Graph.gamesToPlay = gamesToPlay;
     }
 
-    static int gamesToPlay=20;
+    static int gamesToPlay=100;
     public static boolean isPlayerPlays() {
         return playerPlays;
     }
@@ -67,7 +75,7 @@ public class Graph {
         Graph.bothPlayers = bothPlayers;
     }
 
-    private static boolean playerPlays=true;
+    private static boolean playerPlays=false;
     private static boolean playerisP1=true;
 
     private static boolean bothPlayers=false;
@@ -83,11 +91,11 @@ public class Graph {
 
     private static int numOfMoves;
 
-    public static int getSleep() {
+    public static long getSleep() {
         return sleep;
     }
 
-    private static int sleep = 1;
+    public static long sleep = (long)(1);
 
     public static void setAllWaysReplay(boolean allWaysReplay) {
         Graph.allWaysReplay = allWaysReplay;
@@ -129,6 +137,9 @@ public class Graph {
     private static boolean MCTSon=false;
     private static boolean MCTSP1=false;
 
+    private static MCTSTree MCTS= new MCTSTree();
+    public  static MCTSTree getMCTS() {return MCTS;}
+
     public static boolean isMCTS() {return MCTSon;}
 
     public static boolean isMCTSP1() {return MCTSP1;}
@@ -138,7 +149,7 @@ public class Graph {
     public static void setMCTSP1(boolean b) {MCTSP1=b;}
 
     //Variables for MINIMAX, make sure to use these while implementing
-    private static boolean miniMaxOn=true;
+    private static boolean miniMaxOn=false;
     private static boolean miniMaxP1=false;
     public static boolean isMiniMax() {return miniMaxOn;}
 
@@ -150,10 +161,10 @@ public class Graph {
 
 
     // chooses whether randBot will be player 1 or 2
-    private static boolean randBotPlayer1 = true;
+    private static boolean randBotPlayer1 = false;
     public  static boolean getRandBotPlayer1() {return randBotPlayer1;}
     // chooses whether randBot is active
-    private static boolean activateRandom=true;
+    private static boolean activateRandom=false;
     public static void setActivateRandom(boolean activateRandom) { Graph.activateRandom = activateRandom; }
     public  static boolean getActivateRandom() {return activateRandom;}
     // Adjacency matrix
@@ -327,15 +338,15 @@ public class Graph {
                 counter++;
             }
         }
-
+        t= new MinMax();
+        doubleCross=false;
     }
+    // Removes all activated ELines from the an availableLines arrayList.
     public static ArrayList<ELine> availCheck(ArrayList<ELine> av){
-        //  System.out.println("AV CHECK:");
         boolean stop=false;
         for(int q=av.size()-1;q>=0;q--){
             if(av.get(q).isActivated()&&!stop){
                 stop=true;
-                //  System.out.println("REMOVE: "+av.get(q).vertices.get(0).id+" -- "+av.get(q).vertices.get(1).id);
                 av.remove(q);
             }
         }

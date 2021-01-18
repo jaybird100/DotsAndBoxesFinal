@@ -20,12 +20,12 @@ public class ScoreLabel extends JLabel {
         if(num==1) {
             this.setText(Graph.getPlayer1Score()+" : "+Graph.getGamesWon1());
             this.setForeground(Color.RED);
-            this.setBounds(Paths.FRAME_WIDTH / 4, 20, 80, 70);
+            this.setBounds((int)((0.8*(double)(Paths.FRAME_WIDTH)/4.0)), 20, 160, 70);
 
         }else{
             this.setText(Graph.getPlayer2Score()+" : "+Graph.getGamesWon2());
             this.setForeground(Color.BLUE);
-            this.setBounds(3*Paths.FRAME_WIDTH/4, 20,80,70);
+            this.setBounds((int)((2.5*(double)(Paths.FRAME_WIDTH)/4.0)), 20,160,70);
         }
     }
     // updates the score

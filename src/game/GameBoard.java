@@ -59,18 +59,19 @@ public class GameBoard{
         GameThread thread = new GameThread();
         thread.start();
     }
-    public GameBoard(int h, int w, MinMax t, int simulations, int depth, boolean first) throws IOException {
+    public GameBoard(int h, int w, MinMax t, int simulations, int nodesExpansion, boolean first) throws IOException {
         graph = new Graph(h, w, frame);
         Graph.setSims(simulations);
-        Graph.setMinMaxDepth(depth);
-        Graph.setT(t);
+        Graph.minMaxNodesExpansion=nodesExpansion;
         Graph.setMiniMaxP1(first);
         Graph.setMiniMax(true);
         Graph.setRandBotPlayer1(!first);
         Graph.setActivateRandom(true);
         Graph.setAllWaysReplay(true);
         Graph.GASim =true;
+        Graph.sleep=0;
         graph.createGraph();
+        Graph.setT(t);
         GameThread thread = new GameThread();
         thread.start();
     }
